@@ -8,10 +8,10 @@
   />
   <title>Verisma Productivity Tracker</title>
 
-  <!-- Link to our PWA manifest -->
+  <!-- PWA manifest -->
   <link rel="manifest" href="manifest.json" />
 
-  <!-- Materialize CSS & Icons (for minimal styling) -->
+  <!-- Materialize CSS & Icons -->
   <link
     href="https://fonts.googleapis.com/icon?family=Material+Icons"
     rel="stylesheet"
@@ -27,12 +27,12 @@
       padding: 0;
       width: 100%;
       height: 100%;
-      overflow: hidden; /* no scrollbars */
+      overflow: hidden;
       background-color: #f4f6f8;
       font-family: "Roboto", sans-serif;
     }
 
-    /* ─── Centered Login Form ───────────────────────────────────── */
+    /* ─── LOGIN FORM ───────────────────────────────────────────────── */
     #loginSection {
       width: 100%;
       height: 100%;
@@ -56,7 +56,7 @@
       margin-bottom: 16px;
     }
 
-    /* ─── Draggable Title Bar ──────────────────────────────────────── */
+    /* ─── DRAGGABLE TITLE BAR ──────────────────────────────────────── */
     #titleBar {
       width: 100%;
       height: 36px;
@@ -65,7 +65,7 @@
       line-height: 36px;
       padding-left: 12px;
       box-sizing: border-box;
-      -webkit-app-region: drag; /* Allows dragging PWA window on desktop */
+      -webkit-app-region: drag;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -76,7 +76,7 @@
       user-select: none;
     }
     #titleBar button#closeBtn {
-      -webkit-app-region: no-drag; /* clickable area */
+      -webkit-app-region: no-drag;
       background: transparent;
       border: none;
       color: white;
@@ -85,7 +85,7 @@
       margin-right: 8px;
     }
 
-    /* ─── Container (hidden until logged in) ──────────────────────── */
+    /* ─── MAIN CONTAINER (hidden until login) ─────────────────────── */
     #container {
       display: none;
       flex-direction: column;
@@ -94,7 +94,7 @@
       padding: 8px;
     }
 
-    /* ─── Timers & Aux Section ─────────────────────────────────────── */
+    /* ─── TIMERS & AUX ───────────────────────────────────────────── */
     #timersAux {
       display: flex;
       flex-direction: column;
@@ -118,7 +118,7 @@
       color: #111;
     }
 
-    /* ─── Aux Control Section ─────────────────────────────────────── */
+    /* ─── AUX CONTROL ─────────────────────────────────────────────── */
     #auxControls {
       display: flex;
       align-items: center;
@@ -135,7 +135,7 @@
       margin-right: 4px;
     }
 
-    /* ─── Actions / Links ─────────────────────────────────────────── */
+    /* ─── ACTIONS / LINKS ───────────────────────────────────────── */
     #actions {
       display: flex;
       justify-content: space-between;
@@ -148,7 +148,7 @@
       padding: 4px 8px;
     }
 
-    /* ─── Responsiveness ─────────────────────────────────────────── */
+    /* ─── RESPONSIVE FONT SIZING ────────────────────────────────── */
     body {
       font-size: calc((100vw + 100vh) / 100);
     }
@@ -156,7 +156,7 @@
 </head>
 
 <body>
-  <!-- ─── LOGIN SECTION (visible by default) ───────────────────────── -->
+  <!-- ─── LOGIN SECTION ───────────────────────────────────────────── -->
   <div id="loginSection">
     <div id="loginBox">
       <h5>Login to Verisma</h5>
@@ -174,7 +174,7 @@
     </div>
   </div>
 
-  <!-- ─── MAIN CONTAINER (hidden until login succeeds) ───────────────── -->
+  <!-- ─── MAIN CONTAINER (hidden until valid login) ──────────────── -->
   <div id="container">
     <!-- Draggable Title Bar -->
     <div id="titleBar">
@@ -206,7 +206,7 @@
       </div>
     </div>
 
-    <!-- Actions: Refresh & Link to full dashboard -->
+    <!-- Actions: Refresh & Link -->
     <div id="actions">
       <button id="refreshBtn" class="btn-small green">Refresh</button>
       <a id="openFull" class="btn-small grey lighten-1" target="_blank">
@@ -221,7 +221,7 @@
   ></script>
 
   <script>
-    // ─── CONFIGURATION ────────────────────────────────────────────
+    // ─── CONFIG ─────────────────────────────────────────────────────
     const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbw2tYPEV0kMGkDXKCZumgTxocy4nH_iN7E-vEoWpuIPcrY-shgfD7dhrm0Fy7HF0C4G/exec";
     const JS_TIMEZONE = "America/Chicago";
 
@@ -233,21 +233,21 @@
     let auxStartTime, auxTimerInterval;
 
     document.addEventListener("DOMContentLoaded", () => {
-      // Initialize Materialize select
+      // Initialize Materialize components
       M.AutoInit();
 
-      // Hook up Close button
+      // Close button
       document.getElementById("closeBtn").onclick = () => window.close();
 
-      // Hook up “Open Full Dashboard”
+      // “Open Full Dashboard” link
       document.getElementById("openFull").href =
         "https://sites.google.com/view/verisma/verisma";
 
-      // Aux button‐click handlers (won’t run until logged in)
+      // Aux buttons (inactive until login)
       document.getElementById("startAux").onclick = () => startAux();
       document.getElementById("stopAux").onclick = () => stopAux();
 
-      // Refresh button (won’t run until logged in)
+      // Refresh button
       document.getElementById("refreshBtn").onclick = () => {
         loadAverageTime();
       };
@@ -264,7 +264,7 @@
       };
     });
 
-    // ─── LOGIN FUNCTION ──────────────────────────────────────────────
+    // ─── LOGIN FLOW ───────────────────────────────────────────────
     async function validateUser(username, password) {
       try {
         const resp = await fetch(`${WEB_APP_URL}?action=validateUser`, {
@@ -276,10 +276,12 @@
         if (result.success) {
           currentUser = result.username;
           currentAccess = result.access || "User";
-          // Hide login form, show main container
+
+          // Hide login, show main UI
           document.getElementById("loginSection").style.display = "none";
           document.getElementById("container").style.display = "flex";
-          // Start timers and load data
+
+          // Start transaction timer & load average
           startTransactionTimer();
           loadAverageTime();
         } else {
@@ -287,11 +289,11 @@
         }
       } catch (err) {
         console.error("Login error:", err);
-        alert("Login failed. Check console for details.");
+        alert("Login failed. Check the console for details.");
       }
     }
 
-    // ─── Transaction Timer ─────────────────────────────────────────
+    // ─── TRANSACTION TIMER ────────────────────────────────────────
     function startTransactionTimer() {
       transactionStartTime = new Date(
         new Date().toLocaleString("en-US", { timeZone: JS_TIMEZONE })
@@ -317,7 +319,7 @@
         diff < 60000 ? "green" : diff < 90000 ? "#DAA520" : "red";
     }
 
-    // ─── Average Time Today ────────────────────────────────────────
+    // ─── AVERAGE TIME TODAY ───────────────────────────────────────
     function loadAverageTime() {
       if (!currentUser) return;
       if (currentAccess === "User") {
@@ -342,12 +344,13 @@
       }
     }
 
-    // ─── Aux Start/Stop ────────────────────────────────────────────
+    // ─── AUX START/STOP ────────────────────────────────────────────
     function startAux() {
       if (!currentUser) return;
       const auxType = document.getElementById("auxSelector").value;
       currentAux = auxType;
       clearInterval(transactionTimerInterval);
+
       auxStartTime = new Date(
         new Date().toLocaleString("en-US", { timeZone: JS_TIMEZONE })
       );
@@ -362,9 +365,7 @@
       )
         .then((r) => r.json())
         .then((data) => {
-          if (!data.success) {
-            console.error("startAux returned false");
-          }
+          if (!data.success) console.error("startAux returned false");
         })
         .catch((e) => console.error("startAux error:", e));
     }
@@ -379,9 +380,7 @@
       )
         .then((r) => r.json())
         .then((data) => {
-          if (!data.success) {
-            console.error("stopAux returned false");
-          }
+          if (!data.success) console.error("stopAux returned false");
           startTransactionTimer();
           currentAux = "Indexing";
           document.getElementById("auxSelector").value = "Indexing";
@@ -409,7 +408,7 @@
       document.getElementById("auxTimer").textContent = text;
     }
 
-    // ─── Service Worker Registration ──────────────────────────────
+    // ─── SERVICE WORKER ─────────────────────────────────────────────
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker
         .register("service-worker.js")
