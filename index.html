@@ -8,10 +8,10 @@
   />
   <title>Verisma Productivity Tracker</title>
 
-  <!-- PWA manifest -->
+  <!-- Link to our PWA manifest for “Install as App” behavior -->
   <link rel="manifest" href="manifest.json" />
 
-  <!-- Materialize CSS & Icons -->
+  <!-- Materialize CSS & Icons for minimal styling -->
   <link
     href="https://fonts.googleapis.com/icon?family=Material+Icons"
     rel="stylesheet"
@@ -22,17 +22,18 @@
   />
 
   <style>
+    /* ─── BASIC RESET ───────────────────────────────────────────────── */
     html, body {
       margin: 0;
       padding: 0;
       width: 100%;
       height: 100%;
-      overflow: hidden;
+      overflow: hidden; /* no scrollbars */
       background-color: #f4f6f8;
       font-family: "Roboto", sans-serif;
     }
 
-    /* ─── LOGIN FORM ───────────────────────────────────────────────── */
+    /* ─── LOGIN SCREEN (FULL‐SCREEN) ───────────────────────────────── */
     #loginSection {
       width: 100%;
       height: 100%;
@@ -56,7 +57,7 @@
       margin-bottom: 16px;
     }
 
-    /* ─── DRAGGABLE TITLE BAR ──────────────────────────────────────── */
+    /* ─── DRAGGABLE TITLE BAR ─────────────────────────────────────── */
     #titleBar {
       width: 100%;
       height: 36px;
@@ -65,7 +66,7 @@
       line-height: 36px;
       padding-left: 12px;
       box-sizing: border-box;
-      -webkit-app-region: drag;
+      -webkit-app-region: drag; /* allow dragging when “installed as PWA” */
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -76,7 +77,7 @@
       user-select: none;
     }
     #titleBar button#closeBtn {
-      -webkit-app-region: no-drag;
+      -webkit-app-region: no-drag; /* clickable area */
       background: transparent;
       border: none;
       color: white;
@@ -85,7 +86,7 @@
       margin-right: 8px;
     }
 
-    /* ─── MAIN CONTAINER (hidden until login) ─────────────────────── */
+    /* ─── MAIN CONTAINER (hidden until login succeeds) ───────────── */
     #container {
       display: none;
       flex-direction: column;
@@ -174,9 +175,9 @@
     </div>
   </div>
 
-  <!-- ─── MAIN CONTAINER (hidden until valid login) ──────────────── -->
+  <!-- ─── MAIN CONTAINER (hidden until login) ─────────────────────── -->
   <div id="container">
-    <!-- Draggable Title Bar -->
+    <!-- Draggable Title Bar (only when PWA‐installed) -->
     <div id="titleBar">
       <h1>Verisma Tracker</h1>
       <button id="closeBtn">&times;</button>
@@ -206,7 +207,7 @@
       </div>
     </div>
 
-    <!-- Actions: Refresh & Link -->
+    <!-- Actions: Refresh & Link to full dashboard -->
     <div id="actions">
       <button id="refreshBtn" class="btn-small green">Refresh</button>
       <a id="openFull" class="btn-small grey lighten-1" target="_blank">
@@ -215,14 +216,16 @@
     </div>
   </div>
 
-  <!-- Materialize JS (for <select>) -->
+  <!-- Materialize JS (for <select>, etc.) -->
   <script
     src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"
   ></script>
 
   <script>
     // ─── CONFIG ─────────────────────────────────────────────────────
+    // Paste your newly‐deployed Apps Script URL here (must end in /exec):
     const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbw2tYPEV0kMGkDXKCZumgTxocy4nH_iN7E-vEoWpuIPcrY-shgfD7dhrm0Fy7HF0C4G/exec";
+
     const JS_TIMEZONE = "America/Chicago";
 
     let currentUser = null;
@@ -232,27 +235,28 @@
     let transactionStartTime, transactionTimerInterval;
     let auxStartTime, auxTimerInterval;
 
+
     document.addEventListener("DOMContentLoaded", () => {
-      // Initialize Materialize components
+      // Initialize Materialize (select dropdown styling, etc.)
       M.AutoInit();
 
-      // Close button
+      // Close button simply closes the PWA window (only works if installed as a PWA).
       document.getElementById("closeBtn").onclick = () => window.close();
 
-      // “Open Full Dashboard” link
+      // “Open Full Dashboard” always goes to your Google Sites page:
       document.getElementById("openFull").href =
         "https://sites.google.com/view/verisma/verisma";
 
-      // Aux buttons (inactive until login)
+      // Hook up Aux buttons (won’t do anything until login succeeds)
       document.getElementById("startAux").onclick = () => startAux();
       document.getElementById("stopAux").onclick = () => stopAux();
 
-      // Refresh button
+      // Refresh button reloads the “Avg Time Today”
       document.getElementById("refreshBtn").onclick = () => {
         loadAverageTime();
       };
 
-      // Login button
+      // Login button → fires validateUser() via GET
       document.getElementById("loginButton").onclick = () => {
         const uname = document.getElementById("usernameInput").value.trim();
         const pword = document.getElementById("passwordInput").value.trim();
@@ -264,24 +268,23 @@
       };
     });
 
-    // ─── LOGIN FLOW ───────────────────────────────────────────────
+
+    // ─── LOGIN VIA GET ─────────────────────────────────────────────
     async function validateUser(username, password) {
       try {
-        const resp = await fetch(`${WEB_APP_URL}?action=validateUser`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ username, password })
-        });
+        const resp = await fetch(
+          `${WEB_APP_URL}?action=validateUser&username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`
+        );
         const result = await resp.json();
         if (result.success) {
           currentUser = result.username;
           currentAccess = result.access || "User";
 
-          // Hide login, show main UI
+          // Hide login form, show main UI
           document.getElementById("loginSection").style.display = "none";
           document.getElementById("container").style.display = "flex";
 
-          // Start transaction timer & load average
+          // Start transaction timer and load today’s average
           startTransactionTimer();
           loadAverageTime();
         } else {
@@ -289,9 +292,10 @@
         }
       } catch (err) {
         console.error("Login error:", err);
-        alert("Login failed. Check the console for details.");
+        alert("Login failed. Check console for details.");
       }
     }
+
 
     // ─── TRANSACTION TIMER ────────────────────────────────────────
     function startTransactionTimer() {
@@ -315,14 +319,18 @@
       const text = [h, m, s].map((n) => n.toString().padStart(2, "0")).join(":");
       const el = document.getElementById("transactionTimer");
       el.textContent = text;
+
+      // Color‐code: <1 min → green, <1.5 min → gold, else red
       el.style.color =
         diff < 60000 ? "green" : diff < 90000 ? "#DAA520" : "red";
     }
 
-    // ─── AVERAGE TIME TODAY ───────────────────────────────────────
+
+    // ─── LOAD AVERAGE TIME FOR TODAY ──────────────────────────────
     function loadAverageTime() {
       if (!currentUser) return;
       if (currentAccess === "User") {
+        // For a regular user, call getUserEODAHT
         fetch(`${WEB_APP_URL}?action=getUserEODAHT&username=${encodeURIComponent(currentUser)}`)
           .then((r) => r.json())
           .then((data) => {
@@ -330,6 +338,7 @@
           })
           .catch((e) => console.error("getUserEODAHT error:", e));
       } else {
+        // Admins / Supervisors: specify from/to as today
         const today = new Date().toISOString().split("T")[0];
         fetch(
           `${WEB_APP_URL}?action=getAverageTransactionTime&username=${encodeURIComponent(
@@ -344,13 +353,17 @@
       }
     }
 
-    // ─── AUX START/STOP ────────────────────────────────────────────
+
+    // ─── AUX START / STOP ─────────────────────────────────────────
     function startAux() {
       if (!currentUser) return;
       const auxType = document.getElementById("auxSelector").value;
       currentAux = auxType;
+
+      // 1) stop the transaction timer
       clearInterval(transactionTimerInterval);
 
+      // 2) start the Aux timer locally
       auxStartTime = new Date(
         new Date().toLocaleString("en-US", { timeZone: JS_TIMEZONE })
       );
@@ -358,6 +371,7 @@
       updateAuxTimer();
       auxTimerInterval = setInterval(updateAuxTimer, 1000);
 
+      // 3) log the Aux start to Apps Script
       fetch(
         `${WEB_APP_URL}?action=startAux&username=${encodeURIComponent(
           currentUser
@@ -375,12 +389,14 @@
       clearInterval(auxTimerInterval);
       document.getElementById("auxTimer").textContent = "00:00:00";
 
+      // 1) tell Apps Script to log Aux stop
       fetch(
         `${WEB_APP_URL}?action=stopAux&username=${encodeURIComponent(currentUser)}`
       )
         .then((r) => r.json())
         .then((data) => {
           if (!data.success) console.error("stopAux returned false");
+          // 2) restart the transaction timer
           startTransactionTimer();
           currentAux = "Indexing";
           document.getElementById("auxSelector").value = "Indexing";
@@ -388,6 +404,7 @@
         })
         .catch((e) => {
           console.error("stopAux error:", e);
+          // Even if logging fails, restart the timer
           startTransactionTimer();
           currentAux = "Indexing";
           document.getElementById("auxSelector").value = "Indexing";
@@ -408,7 +425,8 @@
       document.getElementById("auxTimer").textContent = text;
     }
 
-    // ─── SERVICE WORKER ─────────────────────────────────────────────
+
+    // ─── REGISTER SERVICE WORKER (for PWA caching) ─────────────────
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker
         .register("service-worker.js")
