@@ -22,9 +22,7 @@
   />
 
   <style>
-    /* ─── Basic Reset ───────────────────────────────────────────────── */
-    html,
-    body {
+    html, body {
       margin: 0;
       padding: 0;
       width: 100%;
@@ -32,6 +30,30 @@
       overflow: hidden; /* no scrollbars */
       background-color: #f4f6f8;
       font-family: "Roboto", sans-serif;
+    }
+
+    /* ─── Centered Login Form ───────────────────────────────────── */
+    #loginSection {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      background-color: #f4f6f8;
+    }
+    #loginBox {
+      background: white;
+      padding: 24px;
+      border-radius: 8px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+      width: 280px;
+    }
+    #loginBox h5 {
+      margin-bottom: 16px;
+      text-align: center;
+    }
+    #loginBox .input-field {
+      margin-bottom: 16px;
     }
 
     /* ─── Draggable Title Bar ──────────────────────────────────────── */
@@ -63,11 +85,11 @@
       margin-right: 8px;
     }
 
-    /* ─── Container ───────────────────────────────────────────────── */
+    /* ─── Container (hidden until logged in) ──────────────────────── */
     #container {
-      display: flex;
+      display: none;
       flex-direction: column;
-      height: calc(100% - 36px);
+      height: 100%;
       box-sizing: border-box;
       padding: 8px;
     }
@@ -127,23 +149,40 @@
     }
 
     /* ─── Responsiveness ─────────────────────────────────────────── */
-    /* Scale text based on window size—ensures resize auto‐scales fonts */
     body {
-      font-size: calc( (100vw + 100vh) / 100 );
+      font-size: calc((100vw + 100vh) / 100);
     }
   </style>
 </head>
 
 <body>
-  <!-- ─── Title Bar (draggable) ────────────────────────────────── -->
-  <div id="titleBar">
-    <h1>Verisma Tracker</h1>
-    <button id="closeBtn">&times;</button>
+  <!-- ─── LOGIN SECTION (visible by default) ───────────────────────── -->
+  <div id="loginSection">
+    <div id="loginBox">
+      <h5>Login to Verisma</h5>
+      <div class="input-field">
+        <input id="usernameInput" type="text" required />
+        <label for="usernameInput">Username</label>
+      </div>
+      <div class="input-field">
+        <input id="passwordInput" type="password" required />
+        <label for="passwordInput">Password</label>
+      </div>
+      <div style="text-align:center; margin-top: 16px;">
+        <button id="loginButton" class="btn blue">Login</button>
+      </div>
+    </div>
   </div>
 
-  <!-- ─── Main Container ───────────────────────────────────────── -->
+  <!-- ─── MAIN CONTAINER (hidden until login succeeds) ───────────────── -->
   <div id="container">
-    <!-- Timers Display -->
+    <!-- Draggable Title Bar -->
+    <div id="titleBar">
+      <h1>Verisma Tracker</h1>
+      <button id="closeBtn">&times;</button>
+    </div>
+
+    <!-- Timers & Aux Controls -->
     <div id="timersAux">
       <div class="timer-row">
         <label>Txn Timer:</label>
@@ -153,8 +192,6 @@
         <label>Avg Time Today:</label>
         <span id="avgTime" class="value">00:00:00</span>
       </div>
-
-      <!-- Aux Controls -->
       <div id="auxControls">
         <select id="auxSelector">
           <option value="Indexing" selected>Indexing</option>
@@ -172,76 +209,87 @@
     <!-- Actions: Refresh & Link to full dashboard -->
     <div id="actions">
       <button id="refreshBtn" class="btn-small green">Refresh</button>
-      <a id="openFull" class="btn-small grey lighten-1" target="_blank"
-        >Open Full Dashboard</a
-      >
+      <a id="openFull" class="btn-small grey lighten-1" target="_blank">
+        Open Full Dashboard
+      </a>
     </div>
   </div>
 
-  <!-- Materialize JS (for styling <select>) -->
+  <!-- Materialize JS (for <select>) -->
   <script
     src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"
   ></script>
 
   <script>
     // ─── CONFIGURATION ────────────────────────────────────────────
-    // Replace with your deployed Apps Script Web App URL:
     const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbw2tYPEV0kMGkDXKCZumgTxocy4nH_iN7E-vEoWpuIPcrY-shgfD7dhrm0Fy7HF0C4G/exec";
-
     const JS_TIMEZONE = "America/Chicago";
-    let currentUser = null,
-      currentAccess = "User",
-      currentAux = "Indexing";
 
-    let transactionStartTime,
-      transactionTimerInterval;
-    let auxStartTime,
-      auxTimerInterval;
+    let currentUser = null;
+    let currentAccess = "User";
+    let currentAux = "Indexing";
+
+    let transactionStartTime, transactionTimerInterval;
+    let auxStartTime, auxTimerInterval;
 
     document.addEventListener("DOMContentLoaded", () => {
       // Initialize Materialize select
       M.AutoInit();
 
-      // Hook up “Close” button to close this PWA window
+      // Hook up Close button
       document.getElementById("closeBtn").onclick = () => window.close();
 
-      // “Open Full Dashboard” simply goes to the Verisma site
+      // Hook up “Open Full Dashboard”
       document.getElementById("openFull").href =
         "https://sites.google.com/view/verisma/verisma";
 
-      // Aux button‐click handlers
+      // Aux button‐click handlers (won’t run until logged in)
       document.getElementById("startAux").onclick = () => startAux();
       document.getElementById("stopAux").onclick = () => stopAux();
 
-      // Refresh just reloads average time for today
+      // Refresh button (won’t run until logged in)
       document.getElementById("refreshBtn").onclick = () => {
         loadAverageTime();
       };
 
-      // 1) First, get the currently signed‐in user from Apps Script
-      fetch(`${WEB_APP_URL}?action=getCurrentUser`)
-        .then((resp) => resp.json())
-        .then((data) => {
-          if (!data.success) {
-            alert(
-              "Unable to get current user. Please open the full Verisma dashboard once to authorize."
-            );
-            return;
-          }
-          currentUser = data.username;
-          currentAccess = data.access || "User";
-
-          // 2) Start the transaction timer
-          startTransactionTimer();
-
-          // 3) Load average time for today
-          loadAverageTime();
-        })
-        .catch((err) => {
-          console.error("Error fetching current user:", err);
-          alert("Network error. Make sure you're signed in to Google in this browser.");
-        });
+      // Login button
+      document.getElementById("loginButton").onclick = () => {
+        const uname = document.getElementById("usernameInput").value.trim();
+        const pword = document.getElementById("passwordInput").value.trim();
+        if (!uname || !pword) {
+          alert("Please enter both username and password.");
+          return;
+        }
+        validateUser(uname, pword);
+      };
     });
+
+    // ─── LOGIN FUNCTION ──────────────────────────────────────────────
+    async function validateUser(username, password) {
+      try {
+        const resp = await fetch(`${WEB_APP_URL}?action=validateUser`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, password })
+        });
+        const result = await resp.json();
+        if (result.success) {
+          currentUser = result.username;
+          currentAccess = result.access || "User";
+          // Hide login form, show main container
+          document.getElementById("loginSection").style.display = "none";
+          document.getElementById("container").style.display = "flex";
+          // Start timers and load data
+          startTransactionTimer();
+          loadAverageTime();
+        } else {
+          alert("Invalid credentials. Please try again.");
+        }
+      } catch (err) {
+        console.error("Login error:", err);
+        alert("Login failed. Check console for details.");
+      }
+    }
 
     // ─── Transaction Timer ─────────────────────────────────────────
     function startTransactionTimer() {
@@ -262,13 +310,9 @@
         h = Math.floor(secs / 3600),
         m = Math.floor((secs % 3600) / 60),
         s = secs % 60;
-      const text = [h, m, s]
-        .map((n) => n.toString().padStart(2, "0"))
-        .join(":");
+      const text = [h, m, s].map((n) => n.toString().padStart(2, "0")).join(":");
       const el = document.getElementById("transactionTimer");
       el.textContent = text;
-
-      // Color code: <1 min=green, <1.5 min=gold, else=red
       el.style.color =
         diff < 60000 ? "green" : diff < 90000 ? "#DAA520" : "red";
     }
@@ -276,47 +320,34 @@
     // ─── Average Time Today ────────────────────────────────────────
     function loadAverageTime() {
       if (!currentUser) return;
-      // If a “User” (not Admin), call getUserEODAHT
       if (currentAccess === "User") {
-        fetch(
-          `${WEB_APP_URL}?action=getUserEODAHT&username=${encodeURIComponent(
-            currentUser
-          )}`
-        )
-          .then((resp) => resp.json())
+        fetch(`${WEB_APP_URL}?action=getUserEODAHT&username=${encodeURIComponent(currentUser)}`)
+          .then((r) => r.json())
           .then((data) => {
             document.getElementById("avgTime").textContent = data.avg || "00:00:00";
           })
-          .catch((err) => console.error("Error getUserEODAHT:", err));
+          .catch((e) => console.error("getUserEODAHT error:", e));
       } else {
-        // For Admin, compute for today
         const today = new Date().toISOString().split("T")[0];
         fetch(
           `${WEB_APP_URL}?action=getAverageTransactionTime&username=${encodeURIComponent(
             currentUser
           )}&from=${today}&to=${today}&access=${currentAccess}`
         )
-          .then((resp) => resp.json())
+          .then((r) => r.json())
           .then((data) => {
             document.getElementById("avgTime").textContent = data.avg || "00:00:00";
           })
-          .catch((err) => console.error("Error getAverageTransactionTime:", err));
+          .catch((e) => console.error("getAverageTransactionTime error:", e));
       }
     }
 
     // ─── Aux Start/Stop ────────────────────────────────────────────
     function startAux() {
-      if (!currentUser) {
-        alert("Please open the full dashboard once to authenticate.");
-        return;
-      }
+      if (!currentUser) return;
       const auxType = document.getElementById("auxSelector").value;
       currentAux = auxType;
-
-      // 1) Stop transaction timer
       clearInterval(transactionTimerInterval);
-
-      // 2) Start the Aux timer locally
       auxStartTime = new Date(
         new Date().toLocaleString("en-US", { timeZone: JS_TIMEZONE })
       );
@@ -324,19 +355,18 @@
       updateAuxTimer();
       auxTimerInterval = setInterval(updateAuxTimer, 1000);
 
-      // 3) Tell Apps Script to log Aux start
       fetch(
         `${WEB_APP_URL}?action=startAux&username=${encodeURIComponent(
           currentUser
         )}&auxType=${encodeURIComponent(auxType)}`
       )
-        .then((resp) => resp.json())
+        .then((r) => r.json())
         .then((data) => {
           if (!data.success) {
-            console.error("startAux returned success=false");
+            console.error("startAux returned false");
           }
         })
-        .catch((err) => console.error("Error startAux:", err));
+        .catch((e) => console.error("startAux error:", e));
     }
 
     function stopAux() {
@@ -344,24 +374,21 @@
       clearInterval(auxTimerInterval);
       document.getElementById("auxTimer").textContent = "00:00:00";
 
-      // 1) Tell Apps Script to log Aux stop
       fetch(
         `${WEB_APP_URL}?action=stopAux&username=${encodeURIComponent(currentUser)}`
       )
-        .then((resp) => resp.json())
+        .then((r) => r.json())
         .then((data) => {
           if (!data.success) {
-            console.error("stopAux returned success=false");
+            console.error("stopAux returned false");
           }
-          // 2) Restart transaction timer
           startTransactionTimer();
           currentAux = "Indexing";
           document.getElementById("auxSelector").value = "Indexing";
           M.FormSelect.init(document.getElementById("auxSelector"));
         })
-        .catch((err) => {
-          console.error("Error stopAux:", err);
-          // Even on error, restart transaction timer
+        .catch((e) => {
+          console.error("stopAux error:", e);
           startTransactionTimer();
           currentAux = "Indexing";
           document.getElementById("auxSelector").value = "Indexing";
@@ -378,22 +405,16 @@
         h = Math.floor(secs / 3600),
         m = Math.floor((secs % 3600) / 60),
         s = secs % 60;
-      const text = [h, m, s]
-        .map((n) => n.toString().padStart(2, "0"))
-        .join(":");
+      const text = [h, m, s].map((n) => n.toString().padStart(2, "0")).join(":");
       document.getElementById("auxTimer").textContent = text;
     }
 
-    // ─── Service Worker Registration (optional) ──────────────────
+    // ─── Service Worker Registration ──────────────────────────────
     if ("serviceWorker" in navigator) {
       navigator.serviceWorker
         .register("service-worker.js")
-        .then(() => {
-          console.log("Service worker registered.");
-        })
-        .catch((err) => {
-          console.warn("Service worker failed:", err);
-        });
+        .then(() => console.log("Service worker registered."))
+        .catch((err) => console.warn("SW registration failed:", err));
     }
   </script>
 </body>
