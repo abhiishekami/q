@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, user-scalable=yes"
+  />
+  <title>Verisma Productivity Tracker</title>
+
+  <!-- Link to our PWA manifest -->
+  <link rel="manifest" href="manifest.json" />
+
+  <!-- Materialize CSS & Icons (for minimal styling) -->
+  <link
+    href="https://fonts.googleapis.com/icon?family=Material+Icons"
+    rel="stylesheet"
+  />
+  <link
+    href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css"
+    rel="stylesheet"
+  />
+
+  <style>
+    /* ─── Basic Reset ───────────────────────────────────────────────── */
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden; /* no scrollbars */
+      background-color: #f4f6f8;
+      font-family: "Roboto", sans-serif;
+    }
+
+    /* ─── Draggable Title Bar ──────────────────────────────────────── */
+    #titleBar {
+      width: 100%;
+      height: 36px;
+      background-color: #2196f3;
+      color: white;
+      line-height: 36px;
+      padding-left: 12px;
+      box-sizing: border-box;
+      -webkit-app-region: drag; /* Allows dragging PWA window on desktop */
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    #titleBar h1 {
+      font-size: 14px;
+      margin: 0;
+      user-select: none;
+    }
+    #titleBar button#closeBtn {
+      -webkit-app-region: no-drag; /* clickable area */
+      background: transparent;
+      border: none;
+      color: white;
+      font-size: 20px;
+      cursor: pointer;
+      margin-right: 8px;
+    }
+
+    /* ─── Container ───────────────────────────────────────────────── */
+    #container {
+      display: flex;
+      flex-direction: column;
+      height: calc(100% - 36px);
+      box-sizing: border-box;
+      padding: 8px;
+    }
+
+    /* ─── Timers & Aux Section ─────────────────────────────────────── */
+    #timersAux {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      margin-bottom: 8px;
+    }
+    .timer-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 4px;
+    }
+    .timer-row label {
+      font-size: 12px;
+      font-weight: 500;
+      color: #333;
+    }
+    .timer-row span.value {
+      font-size: 14px;
+      font-weight: bold;
+      color: #111;
+    }
+
+    /* ─── Aux Control Section ─────────────────────────────────────── */
+    #auxControls {
+      display: flex;
+      align-items: center;
+      margin-top: 4px;
+    }
+    #auxControls select {
+      margin-right: 8px;
+      font-size: 14px;
+      height: 32px;
+    }
+    #auxControls button {
+      font-size: 12px;
+      height: 32px;
+      margin-right: 4px;
+    }
+
+    /* ─── Actions / Links ─────────────────────────────────────────── */
+    #actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 8px;
+    }
+    #actions button,
+    #actions a {
+      font-size: 12px;
+      padding: 4px 8px;
+    }
+
+    /* ─── Responsiveness ─────────────────────────────────────────── */
+    /* Scale text based on window size—ensures resize auto‐scales fonts */
+    body {
+      font-size: calc( (100vw + 100vh) / 100 );
+    }
+  </style>
+</head>
+
+<body>
+  <!-- ─── Title Bar (draggable) ────────────────────────────────── -->
+  <div id="titleBar">
+    <h1>Verisma Tracker</h1>
+    <button id="closeBtn">&times;</button>
+  </div>
+
+  <!-- ─── Main Container ───────────────────────────────────────── -->
+  <div id="container">
+    <!-- Timers Display -->
+    <div id="timersAux">
+      <div class="timer-row">
+        <label>Txn Timer:</label>
+        <span id="transactionTimer" class="value">00:00:00</span>
+      </div>
+      <div class="timer-row">
+        <label>Avg Time Today:</label>
+        <span id="avgTime" class="value">00:00:00</span>
+      </div>
+
+      <!-- Aux Controls -->
+      <div id="auxControls">
+        <select id="auxSelector">
+          <option value="Indexing" selected>Indexing</option>
+          <option value="Break">Break</option>
+          <option value="Downtime">Downtime</option>
+          <option value="Meeting">Meeting</option>
+          <option value="Quality Feedback">Quality Feedback</option>
+        </select>
+        <button id="startAux" class="btn-small blue">Start</button>
+        <button id="stopAux" class="btn-small orange">Stop</button>
+        <span id="auxTimer" class="value" style="margin-left:8px;">00:00:00</span>
+      </div>
+    </div>
+
+    <!-- Actions: Refresh & Link to full dashboard -->
+    <div id="actions">
+      <button id="refreshBtn" class="btn-small green">Refresh</button>
+      <a id="openFull" class="btn-small grey lighten-1" target="_blank"
+        >Open Full Dashboard</a
+      >
+    </div>
+  </div>
+
+  <!-- Materialize JS (for styling <select>) -->
+  <script
+    src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"
+  ></script>
+
+  <script>
+    // ─── CONFIGURATION ────────────────────────────────────────────
+    // Replace with your deployed Apps Script Web App URL:
+    const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbw2tYPEV0kMGkDXKCZumgTxocy4nH_iN7E-vEoWpuIPcrY-shgfD7dhrm0Fy7HF0C4G/exec";
+
+    const JS_TIMEZONE = "America/Chicago";
+    let currentUser = null,
+      currentAccess = "User",
+      currentAux = "Indexing";
+
+    let transactionStartTime,
+      transactionTimerInterval;
+    let auxStartTime,
+      auxTimerInterval;
+
+    document.addEventListener("DOMContentLoaded", () => {
+      // Initialize Materialize select
+      M.AutoInit();
+
+      // Hook up “Close” button to close this PWA window
+      document.getElementById("closeBtn").onclick = () => window.close();
+
+      // “Open Full Dashboard” simply goes to the Verisma site
+      document.getElementById("openFull").href =
+        "https://sites.google.com/view/verisma/verisma";
+
+      // Aux button‐click handlers
+      document.getElementById("startAux").onclick = () => startAux();
+      document.getElementById("stopAux").onclick = () => stopAux();
+
+      // Refresh just reloads average time for today
+      document.getElementById("refreshBtn").onclick = () => {
+        loadAverageTime();
+      };
+
+      // 1) First, get the currently signed‐in user from Apps Script
+      fetch(`${WEB_APP_URL}?action=getCurrentUser`)
+        .then((resp) => resp.json())
+        .then((data) => {
+          if (!data.success) {
+            alert(
+              "Unable to get current user. Please open the full Verisma dashboard once to authorize."
+            );
+            return;
+          }
+          currentUser = data.username;
+          currentAccess = data.access || "User";
+
+          // 2) Start the transaction timer
+          startTransactionTimer();
+
+          // 3) Load average time for today
+          loadAverageTime();
+        })
+        .catch((err) => {
+          console.error("Error fetching current user:", err);
+          alert("Network error. Make sure you're signed in to Google in this browser.");
+        });
+    });
+
+    // ─── Transaction Timer ─────────────────────────────────────────
+    function startTransactionTimer() {
+      transactionStartTime = new Date(
+        new Date().toLocaleString("en-US", { timeZone: JS_TIMEZONE })
+      );
+      if (transactionTimerInterval) clearInterval(transactionTimerInterval);
+      updateTransactionTimer();
+      transactionTimerInterval = setInterval(updateTransactionTimer, 1000);
+    }
+
+    function updateTransactionTimer() {
+      const now = new Date(
+        new Date().toLocaleString("en-US", { timeZone: JS_TIMEZONE })
+      );
+      const diff = now - transactionStartTime;
+      const secs = Math.floor(diff / 1000),
+        h = Math.floor(secs / 3600),
+        m = Math.floor((secs % 3600) / 60),
+        s = secs % 60;
+      const text = [h, m, s]
+        .map((n) => n.toString().padStart(2, "0"))
+        .join(":");
+      const el = document.getElementById("transactionTimer");
+      el.textContent = text;
+
+      // Color code: <1 min=green, <1.5 min=gold, else=red
+      el.style.color =
+        diff < 60000 ? "green" : diff < 90000 ? "#DAA520" : "red";
+    }
+
+    // ─── Average Time Today ────────────────────────────────────────
+    function loadAverageTime() {
+      if (!currentUser) return;
+      // If a “User” (not Admin), call getUserEODAHT
+      if (currentAccess === "User") {
+        fetch(
+          `${WEB_APP_URL}?action=getUserEODAHT&username=${encodeURIComponent(
+            currentUser
+          )}`
+        )
+          .then((resp) => resp.json())
+          .then((data) => {
+            document.getElementById("avgTime").textContent = data.avg || "00:00:00";
+          })
+          .catch((err) => console.error("Error getUserEODAHT:", err));
+      } else {
+        // For Admin, compute for today
+        const today = new Date().toISOString().split("T")[0];
+        fetch(
+          `${WEB_APP_URL}?action=getAverageTransactionTime&username=${encodeURIComponent(
+            currentUser
+          )}&from=${today}&to=${today}&access=${currentAccess}`
+        )
+          .then((resp) => resp.json())
+          .then((data) => {
+            document.getElementById("avgTime").textContent = data.avg || "00:00:00";
+          })
+          .catch((err) => console.error("Error getAverageTransactionTime:", err));
+      }
+    }
+
+    // ─── Aux Start/Stop ────────────────────────────────────────────
+    function startAux() {
+      if (!currentUser) {
+        alert("Please open the full dashboard once to authenticate.");
+        return;
+      }
+      const auxType = document.getElementById("auxSelector").value;
+      currentAux = auxType;
+
+      // 1) Stop transaction timer
+      clearInterval(transactionTimerInterval);
+
+      // 2) Start the Aux timer locally
+      auxStartTime = new Date(
+        new Date().toLocaleString("en-US", { timeZone: JS_TIMEZONE })
+      );
+      if (auxTimerInterval) clearInterval(auxTimerInterval);
+      updateAuxTimer();
+      auxTimerInterval = setInterval(updateAuxTimer, 1000);
+
+      // 3) Tell Apps Script to log Aux start
+      fetch(
+        `${WEB_APP_URL}?action=startAux&username=${encodeURIComponent(
+          currentUser
+        )}&auxType=${encodeURIComponent(auxType)}`
+      )
+        .then((resp) => resp.json())
+        .then((data) => {
+          if (!data.success) {
+            console.error("startAux returned success=false");
+          }
+        })
+        .catch((err) => console.error("Error startAux:", err));
+    }
+
+    function stopAux() {
+      if (!currentUser) return;
+      clearInterval(auxTimerInterval);
+      document.getElementById("auxTimer").textContent = "00:00:00";
+
+      // 1) Tell Apps Script to log Aux stop
+      fetch(
+        `${WEB_APP_URL}?action=stopAux&username=${encodeURIComponent(currentUser)}`
+      )
+        .then((resp) => resp.json())
+        .then((data) => {
+          if (!data.success) {
+            console.error("stopAux returned success=false");
+          }
+          // 2) Restart transaction timer
+          startTransactionTimer();
+          currentAux = "Indexing";
+          document.getElementById("auxSelector").value = "Indexing";
+          M.FormSelect.init(document.getElementById("auxSelector"));
+        })
+        .catch((err) => {
+          console.error("Error stopAux:", err);
+          // Even on error, restart transaction timer
+          startTransactionTimer();
+          currentAux = "Indexing";
+          document.getElementById("auxSelector").value = "Indexing";
+          M.FormSelect.init(document.getElementById("auxSelector"));
+        });
+    }
+
+    function updateAuxTimer() {
+      const now = new Date(
+        new Date().toLocaleString("en-US", { timeZone: JS_TIMEZONE })
+      );
+      const diff = now - auxStartTime;
+      const secs = Math.floor(diff / 1000),
+        h = Math.floor(secs / 3600),
+        m = Math.floor((secs % 3600) / 60),
+        s = secs % 60;
+      const text = [h, m, s]
+        .map((n) => n.toString().padStart(2, "0"))
+        .join(":");
+      document.getElementById("auxTimer").textContent = text;
+    }
+
+    // ─── Service Worker Registration (optional) ──────────────────
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker
+        .register("service-worker.js")
+        .then(() => {
+          console.log("Service worker registered.");
+        })
+        .catch((err) => {
+          console.warn("Service worker failed:", err);
+        });
+    }
+  </script>
+</body>
+</html>
